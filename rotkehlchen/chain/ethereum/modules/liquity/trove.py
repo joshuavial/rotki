@@ -257,14 +257,15 @@ class Liquity(EthereumModule):
                         ),
                     )
                     data[addresses[idx]] = {}
-                    data[addresses[idx]]['trove'] = Trove(
-                        collateral=collateral_balance,
-                        debt=debt_balance,
-                        collateralization_ratio=eth_price * collateral / debt * 100,
-                        liquidation_price=debt * lusd_price * FVal(MIN_COLL_RATE) / collateral,
-                        active=bool(trove_info[3]),  # pylint: disable=unsubscriptable-object
-                        trove_id=trove_info[4],  # pylint: disable=unsubscriptable-object
-                    )
+                    if debt > 0:  # TODO add better check e.g. collateral exists
+                        data[addresses[idx]]['trove'] = Trove(
+                            collateral=collateral_balance,
+                            debt=debt_balance,
+                            collateralization_ratio=eth_price * collateral / debt * 100,
+                            liquidation_price=debt * lusd_price * FVal(MIN_COLL_RATE) / collateral,
+                            active=bool(trove_info[3]),  # pylint: disable=unsubscriptable-object
+                            trove_id=trove_info[4],  # pylint: disable=unsubscriptable-object
+                        )
                 except DeserializationError as e:
                     self.msg_aggregator.add_warning(
                         f'Ignoring Liquity trove information. '
@@ -623,7 +624,10 @@ class Liquity(EthereumModule):
 
     def on_account_addition(self, address: ChecksumEthAddress) -> Optional[List['AssetBalance']]:
         info = self.get_positions([address])
-        return [info[address]['trove'].collateral, info[address]['stake'].staked]  # type: ignore
+        if 'trove' in info[address]:
+            return [info[address]['trove'].collateral, info[address]['stake'].staked]  # type: ignore
+        else:
+            return None
 
     def on_account_removal(self, address: ChecksumEthAddress) -> None:
         pass
